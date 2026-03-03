@@ -16,4 +16,6 @@ from telegram.ext import (
     ContextTypes, 
     filters
 )
-from telegram.error import Unauthorized, BadRequest
+# تم استبدال Unauthorized بـ Forbidden للتوافق مع الإصدارات الجديدة
+from telegram.error import Forbidden, BadRequest
+
