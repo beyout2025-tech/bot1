@@ -53,9 +53,16 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         "move_to_cat_"
     ]
 
-    if any(data.startswith(prefix) for prefix in conversation_prefixes):
-        # لا نقوم بعمل query.answer() هنا لأن الـ ConversationHandler هو من سيتولى ذلك
+        if any(data.startswith(prefix) for prefix in conversation_prefixes):
+        # أضف هذا السطر قبل الـ return
+        try:
+            await query.answer() 
+        except:
+            pass
         return 
+
+        # لا نقوم بعمل query.answer() هنا لأن الـ ConversationHandler هو من سيتولى ذلك
+         
     # --- نهاية التعديل ---
 
     # معالجة الأزرار العامة والقوائم المستقلة
@@ -102,4 +109,6 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         await query.answer()
     except Exception as e:
+        logging.error(f"Error answering callback query: {e}")
+
         logging.error(f"Error answering callback query: {e}")
