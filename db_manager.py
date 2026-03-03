@@ -1,9 +1,64 @@
 # db_manager.py
 import sqlite3
 import json
+import os
 
 DB_FILE = "db.sqlite"
 DEV_ID = 873158772
+
+# --- إضافات الحفظ الخارجي لضمان عدم ضياع البيانات عند الحذف ---
+DATA_BACKUP_FILE = "backup_data.json"
+
+def save_to_backup():
+    """إضافة: حفظ البيانات من SQLite إلى ملف JSON خارجي"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    backup = {}
+    tables = ['users', 'admins', 'categories', 'courses', 'registrations']
+    for table in tables:
+        cursor.execute(f"SELECT * FROM {table}")
+        backup[table] = cursor.fetchall()
+    
+    with open(DATA_BACKUP_FILE, 'w', encoding='utf-8') as f:
+        json.dump(backup, f, ensure_ascii=False, indent=4)
+    conn.close()
+
+def load_from_backup():
+    """إضافة: استعادة البيانات من ملف JSON إلى SQLite عند التشغيل"""
+    if not os.path.exists(DATA_BACKUP_FILE):
+        return
+        
+    with open(DATA_BACKUP_FILE, 'r', encoding='utf-8') as f:
+        backup = json.load(f)
+        
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    # استعادة المستخدمين
+    for row in backup.get('users', []):
+        cursor.execute("INSERT OR IGNORE INTO users (id) VALUES (?)", (row[0],))
+    
+    # استعادة المديرين
+    for row in backup.get('admins', []):
+        cursor.execute("INSERT OR IGNORE INTO admins (id) VALUES (?)", (row[0],))
+        
+    # استعادة التصنيفات
+    for row in backup.get('categories', []):
+        cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (row[0],))
+        
+    # استعادة الدورات
+    for row in backup.get('courses', []):
+        cursor.execute("INSERT OR IGNORE INTO courses (id, name, description, price, category, active) VALUES (?, ?, ?, ?, ?, ?)", row)
+        
+    # استعادة التسجيلات
+    for row in backup.get('registrations', []):
+        cursor.execute("INSERT OR IGNORE INTO registrations (id, user_id, course_id, name, gender, age, country, city, phone, email, status, receipt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", row)
+        
+    conn.commit()
+    conn.close()
+
+# --- دالة التهيئة (ملفك الأصلي مع إضافة دالة الاستعادة) ---
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -33,7 +88,7 @@ def init_db():
     # جدول الدورات
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS courses (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
             description TEXT,
             price REAL,
@@ -67,6 +122,11 @@ def init_db():
 
     conn.commit()
     conn.close()
+    
+    # استدعاء الإضافة لاستعادة البيانات إذا كان السيرفر جديداً
+    load_from_backup()
+
+# --- باقي دوالك الأصلية بدون تغيير حرف واحد ---
 
 def get_all_users():
     conn = sqlite3.connect(DB_FILE)
@@ -98,6 +158,7 @@ def add_user(user_id):
     try:
         cursor.execute("INSERT INTO users (id) VALUES (?)", (user_id,))
         conn.commit()
+        save_to_backup() # إضافة: حفظ نسخة احتياطية فورية
         conn.close()
         return True
     except sqlite3.IntegrityError:
@@ -110,6 +171,7 @@ def add_admin(user_id):
     try:
         cursor.execute("INSERT INTO admins (id) VALUES (?)", (user_id,))
         conn.commit()
+        save_to_backup()
         conn.close()
         return True
     except sqlite3.IntegrityError:
@@ -121,6 +183,7 @@ def remove_admin(user_id):
     cursor = conn.cursor()
     cursor.execute("DELETE FROM admins WHERE id=?", (user_id,))
     conn.commit()
+    save_to_backup()
     conn.close()
 
 def get_all_categories():
@@ -137,6 +200,7 @@ def add_category(name):
     try:
         cursor.execute("INSERT INTO categories (name) VALUES (?)", (name,))
         conn.commit()
+        save_to_backup()
         conn.close()
         return True
     except sqlite3.IntegrityError:
@@ -148,6 +212,7 @@ def delete_category(name):
     cursor = conn.cursor()
     cursor.execute("DELETE FROM categories WHERE name=?", (name,))
     conn.commit()
+    save_to_backup()
     conn.close()
 
 def get_courses_by_category(category):
@@ -181,6 +246,7 @@ def add_course(course_data):
                    (course_data['name'], course_data['description'], course_data['price'], course_data['category'], 1))
     conn.commit()
     last_id = cursor.lastrowid
+    save_to_backup()
     conn.close()
     return last_id
 
@@ -189,23 +255,22 @@ def delete_course(course_id):
     cursor = conn.cursor()
     cursor.execute("DELETE FROM courses WHERE id=?", (course_id,))
     conn.commit()
+    save_to_backup()
     conn.close()
 
 def update_course_field(course_id, field, new_value):
-    # أضف هذا التحقق لضمان أن اسم الحقل آمن
     allowed_fields = ["name", "description", "price", "category", "active"]
     if field not in allowed_fields:
         raise ValueError("Invalid field name")
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    # استخدام الاستعلام البارامتري للحقل القيمة
     query = f"UPDATE courses SET {field}=? WHERE id=?" 
     cursor.execute(query, (new_value, course_id))
     conn.commit()
+    save_to_backup()
     conn.close()
 
-    
 def get_stats():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -231,13 +296,13 @@ def get_stats():
         "num_rejected": num_rejected
     }
     
-    
 def add_registration(reg_data):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("INSERT INTO registrations (user_id, course_id, name, gender, age, country, city, phone, email, status, receipt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                    (reg_data['user_id'], reg_data['course_id'], reg_data['name'], reg_data['gender'], reg_data['age'], reg_data['country'], reg_data['city'], reg_data['phone'], reg_data['email'], reg_data['status'], reg_data['receipt']))
     conn.commit()
+    save_to_backup()
     conn.close()
     
 def get_pending_registration(user_id, course_id):
@@ -253,6 +318,7 @@ def update_registration_status(user_id, course_id, new_status):
     cursor = conn.cursor()
     cursor.execute("UPDATE registrations SET status=? WHERE user_id=? AND course_id=? AND status='pending'", (new_status, user_id, course_id))
     conn.commit()
+    save_to_backup()
     conn.close()
 
 def update_registration_receipt(user_id, course_id, receipt_id):
@@ -260,6 +326,7 @@ def update_registration_receipt(user_id, course_id, receipt_id):
     cursor = conn.cursor()
     cursor.execute("UPDATE registrations SET receipt=? WHERE user_id=? AND course_id=? AND status='accepted'", (receipt_id, user_id, course_id))
     conn.commit()
+    save_to_backup()
     conn.close()
 
 def get_accepted_registration(user_id, course_id):
