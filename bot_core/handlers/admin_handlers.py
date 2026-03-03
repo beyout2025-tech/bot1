@@ -3,7 +3,7 @@ import logging
 
 from bot_core.utils.telegram_imports import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove,
-    ConversationHandler, ContextTypes, filters, Unauthorized, BadRequest, Bot
+    ConversationHandler, ContextTypes, filters, Forbidden, BadRequest, Bot
 )
 
 # استيراد db_manager
@@ -117,7 +117,7 @@ async def process_add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                     chat_id=new_admin_id,
                     text="✅ تهانينا! لقد تم إضافتك كمدير في البوت."
                 )
-            except (Unauthorized, BadRequest):
+            except (Forbidden, BadRequest):
                 logging.warning(f"Failed to notify user {new_admin_id} about admin promotion.")
         else:
             await update.message.reply_text("هذا المستخدم هو مشرف بالفعل.")
@@ -177,7 +177,7 @@ async def send_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             else:
                 await context.bot.send_message(chat_id=user_id, text=message_text)
             success_count += 1
-        except Unauthorized:
+        except Forbidden:
             fail_count += 1
         except Exception:
             fail_count += 1
@@ -561,7 +561,7 @@ async def send_accept_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                  f"{accept_message}\n\n"
                  f"الآن، الرجاء إرسال إيصال الدفع هنا."
         )
-    except (Unauthorized, BadRequest):
+    except (Forbidden, BadRequest):
         logging.warning(f"Failed to send acceptance message to user {user_id}.")
 
     await update.message.reply_text("تم إرسال رسالة القبول للمستخدم بنجاح.", reply_markup=ReplyKeyboardRemove())
@@ -596,7 +596,7 @@ async def send_reject_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             text=f"❌ للأسف، تم رفض طلب تسجيلك.\n\n"
                  f"{reject_message}"
         )
-    except (Unauthorized, BadRequest):
+    except (Forbidden, BadRequest):
         logging.warning(f"Failed to send rejection message to user {user_id}.")
 
     await update.message.reply_text("تم إرسال رسالة الرفض للمستخدم بنجاح.", reply_markup=ReplyKeyboardRemove())
