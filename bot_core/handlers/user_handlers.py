@@ -4,7 +4,7 @@ import logging
 
 from bot_core.utils.telegram_imports import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove,
-    ConversationHandler, ContextTypes, filters, Unauthorized, BadRequest
+    ConversationHandler, ContextTypes, filters, Forbidden, BadRequest
 )
 
 # استيراد db_manager
@@ -64,7 +64,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         text=message_to_admin,
                         parse_mode='Markdown'
                     )
-                except (Unauthorized, BadRequest):
+                except (Forbidden, BadRequest):
                     continue
     
     await update.message.reply_text("أهلاً بك في بوت الدورات التدريبية!", reply_markup=ReplyKeyboardRemove())
@@ -285,7 +285,7 @@ async def get_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                     reply_markup=InlineKeyboardMarkup(admin_keyboard),
                     parse_mode='Markdown'
                 )
-            except (Unauthorized, BadRequest):
+            except (Forbidden, BadRequest):
                 logging.warning(f"Failed to send registration notification to admin {admin_id}.")
 
     return ConversationHandler.END
@@ -321,7 +321,7 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                         caption=caption,
                         parse_mode='Markdown'
                     )
-                except (Unauthorized, BadRequest):
+                except (Forbidden, BadRequest):
                     logging.warning(f"Failed to send receipt notification to admin {admin_id}.")
             await update.message.reply_text("شكراً لك! تم إرسال إيصالك للمراجعة.")
     else:
