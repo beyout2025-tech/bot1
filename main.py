@@ -3,17 +3,17 @@ import logging
 import os
 import sys
 
-
+# إضافة المسار الحالي لضمان استيراد المجلدات الفرعية بشكل صحيح
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from flask import Flask, request
 
+# ملاحظة: تم إزالة Flask لأنه يتعارض مع نظام Polling في استهلاك المنافذ (Ports) على Railway
 from bot_core.utils.telegram_imports import (
     Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove,
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
     ConversationHandler, ContextTypes, filters, Forbidden, BadRequest
 )
 
-# استيراد db_manager
+# استيراد db_manager بكافة وظائفه
 from db_manager import (
     init_db, get_all_users, get_all_admins, is_admin, add_admin, remove_admin, 
     get_all_categories, get_courses_by_category, get_all_courses, get_course_by_id, 
@@ -22,7 +22,7 @@ from db_manager import (
     get_accepted_registration, get_accepted_registrations_for_user
 )
 
-# استيراد دوال المستخدمين من ملف user_handlers.py
+# استيراد كافة دوال المستخدمين
 from bot_core.handlers.user_handlers import (
     show_main_menu,
     start,
@@ -47,16 +47,15 @@ from bot_core.handlers.user_handlers import (
     GET_EMAIL
 )
 
-# استيراد دوال المديرين من ملف admin_handlers.py
-# تم تحديث الأسماء هنا لتطابق التعديلات في admin_handlers.py
+# استيراد كافة دوال المديرين والـ Constants الخاصة بالحالات
 from bot_core.handlers.admin_handlers import (
     show_dev_panel,
     show_dev_stats,
     show_dev_users,
     add_admin_start,
-    process_add_admin,     # الاسم المعدل
+    process_add_admin,
     remove_admin_start,
-    process_remove_admin,  # الاسم المعدل
+    process_remove_admin,
     broadcast_start,
     send_broadcast,
     show_dev_panel_after_conv,
@@ -79,7 +78,7 @@ from bot_core.handlers.admin_handlers import (
     move_course,
     show_manage_categories_menu,
     add_category_start,
-    process_add_category,   # الاسم المعدل
+    process_add_category,
     delete_category_start,
     confirm_delete_category,
     execute_delete_category,
@@ -108,49 +107,33 @@ from bot_core.handlers.admin_handlers import (
     CONFIRM_DELETE_CAT_ACTION
 )
 
-# استيراد دالة معالجة الأزرار من ملف callbacks.py
+# استيراد معالجة الأزرار
 from bot_core.utils.callbacks import handle_callback_query
 
-# استيراد التوكن من config
+# استيراد التوكن
 from config import BOT_TOKEN
 
-# إعداد logging لتتبع الأخطاء
+# إعداد logging لتتبع الأخطاء بدقة في Railway Logs
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# إنشاء البوت و Application
+# إنشاء تطبيق البوت
 application = Application.builder().token(BOT_TOKEN).build()
 
-# إنشاء تطبيق Flask
-app = Flask(__name__)
-
-# Route لاستقبال تحديثات Webhook
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    application.process_update(update)
-    return "OK"
-
-# Route أساسي لتأكيد أن السيرفر شغال
-@app.route("/")
-def home():
-    return "Bot is running"
-
-# دالة لإلغاء المحادثة
+# دالة إلغاء المحادثة والعودة للقائمة الرئيسية
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text('تم إلغاء العملية.', reply_markup=ReplyKeyboardRemove())
     await show_main_menu(update, context)
     return ConversationHandler.END
 
-
-# دالة رئيسية لتشغيل البوت
 def main() -> None:
-    # تهيئة قاعدة البيانات عند بدء التشغيل
+    # 1. تهيئة قاعدة البيانات
     init_db()
 
-    # ConversationHandler لعملية تسجيل المستخدم
+    # --- تعريف كافة الـ ConversationHandlers بكامل تفاصيلها ---
+
     user_reg_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(start_registration, pattern=r"^register_\d+$")],
         states={
@@ -165,7 +148,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    # ConversationHandler لرسائل المدير المخصصة للقبول/الرفض
     admin_msg_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(accept_registration, pattern=r"^accept_\d+_\d+$"),
@@ -178,7 +160,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    # ConversationHandler لإدارة المستخدمين
     admin_user_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(add_admin_start, pattern="^dev_add_admin$"),
@@ -191,7 +172,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    # ConversationHandler لإرسال رسالة جماعية
     admin_broadcast_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(broadcast_start, pattern="^dev_broadcast$")],
         states={
@@ -200,7 +180,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     
-    # ConversationHandler لإضافة دورة جديدة
     admin_add_course_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(add_course_start, pattern="^dev_add_course$")],
         states={
@@ -212,7 +191,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    # ConversationHandler لتعديل دورة
     admin_edit_course_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(edit_course_start, pattern="^dev_edit_course$")],
         states={
@@ -227,7 +205,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     
-    # ConversationHandler لحذف دورة
     admin_delete_course_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(delete_course_start, pattern="^dev_delete_course$")],
         states={
@@ -236,7 +213,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    # ConversationHandler لنقل دورة
     admin_move_course_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(move_course_start, pattern="^dev_move_course$")],
         states={
@@ -246,7 +222,6 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     
-    # ConversationHandler لإدارة التصنيفات
     admin_category_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(add_category_start, pattern="^dev_add_cat$"),
@@ -260,7 +235,7 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel)]
     )
 
-    # إضافة Handlers إلى الـ application
+    # --- إضافة كافة الـ Handlers إلى التطبيق بترتيب صحيح ---
     application.add_handler(CommandHandler("start", start))
     application.add_handler(user_reg_handler)
     application.add_handler(admin_msg_handler)
@@ -274,9 +249,10 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(handle_callback_query))
     application.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
     
-    # تشغيل البوت
-    print("البوت يعمل بنجاح...")
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # 2. بدء التشغيل الفعلي بنظام Polling
+    # ملاحظة: تم استخدام drop_pending_updates لتنظيف الرسائل القديمة العالقة في Webhook السابق
+    print("--- البوت بدأ العمل الآن بنظام Polling على Railway ---")
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
