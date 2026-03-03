@@ -35,35 +35,22 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     data = query.data
 
-    # --- بداية التعديل: حماية المحادثات من التداخل ---
-    # هذه القائمة تحتوي على البادئات (Prefixes) التي تخص الـ ConversationHandlers
-    # إذا اكتشفنا أن الزر يخص عملية (إضافة/تعديل/تسجيل)، نترك المعالجة للـ Handler المختص
+    # --- حماية المحادثات من التداخل وضمان الاستجابة الفورية ---
     conversation_prefixes = [
-        "register_",      # تسجيل مستخدم
-        "gender_",        # اختيار الجنس
-        "accept_",        # قبول طلب
-        "reject_",        # رفض طلب
-        "dev_add_course", # بدء إضافة دورة
-        "select_cat_",    # اختيار تصنيف أثناء إضافة دورة (هام جداً لمنع التهنيج)
-        "dev_add_cat",    # إضافة تصنيف جديد
-        "del_cat_confirm_",
-        "dev_move_course",
-        "edit_field_",
-        "edit_cat_",
-        "move_to_cat_"
+        "register_", "gender_", "accept_", "reject_", 
+        "dev_add_course", "select_cat_", "dev_add_cat", 
+        "del_cat_confirm_", "dev_move_course", "edit_field_", 
+        "edit_cat_", "move_to_cat_"
     ]
 
-        if any(data.startswith(prefix) for prefix in conversation_prefixes):
-        # أضف هذا السطر قبل الـ return
+    # التحقق مما إذا كان الزر يخص محادثة (Conversation)
+    if any(data.startswith(prefix) for prefix in conversation_prefixes):
         try:
-            await query.answer() 
+            await query.answer()
         except:
             pass
         return 
-
-        # لا نقوم بعمل query.answer() هنا لأن الـ ConversationHandler هو من سيتولى ذلك
-         
-    # --- نهاية التعديل ---
+    # --- نهاية الحماية ---
 
     # معالجة الأزرار العامة والقوائم المستقلة
     if data == "show_categories":
@@ -81,10 +68,8 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "dev_categories":
         await show_manage_categories_menu(update, context)
     elif data.startswith("cat_"):
-        # عرض الدورات داخل تصنيف (للمستخدم العادي)
         await show_courses(update, context)
     elif data.startswith("course_"):
-        # عرض تفاصيل دورة معينة
         await show_course_details(update, context)
     elif data.startswith("del_course_confirm_"):
         await confirm_delete_course(update, context)
@@ -105,10 +90,8 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     elif data in ["delete_cat_only", "delete_cat_with_courses"]:
         await execute_delete_category(update, context)
 
-    # إنهاء حالة التحميل (الساعة الرملية) للأزرار التي لم يتم الرد عليها داخل الدوال
+    # إنهاء حالة التحميل للأزرار التي لم يتم الرد عليها
     try:
         await query.answer()
     except Exception as e:
-        logging.error(f"Error answering callback query: {e}")
-
         logging.error(f"Error answering callback query: {e}")
