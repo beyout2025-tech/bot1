@@ -10,7 +10,7 @@ from flask import Flask, request
 from bot_core.utils.telegram_imports import (
     Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove,
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
-    ConversationHandler, ContextTypes, filters, Unauthorized, BadRequest
+    ConversationHandler, ContextTypes, filters, Forbidden, BadRequest
 )
 
 # استيراد db_manager
