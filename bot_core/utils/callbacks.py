@@ -13,7 +13,7 @@ from bot_core.handlers.user_handlers import (
     show_course_details
 )
 
-# استيراد دوال المديرين - تأكد من مطابقة الأسماء مع admin_handlers.py
+# استيراد دوال المديرين
 from bot_core.handlers.admin_handlers import (
     show_dev_panel,
     show_dev_stats,
@@ -21,7 +21,7 @@ from bot_core.handlers.admin_handlers import (
     show_manage_courses_menu,
     confirm_delete_course,
     edit_course_select_field,
-    toggle_status_course,  # تم تصحيح الاسم هنا
+    toggle_course_status,
     edit_course_get_new_value,
     update_course_with_new_cat,
     move_course_select_category,
@@ -35,7 +35,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     data = query.data
 
-    # --- 1. حماية المحادثات (إضافة دورة / تسجيل / تعديل) ---
+    # --- حماية المحادثات من التداخل وضمان الاستجابة الفورية ---
     conversation_prefixes = [
         "register_", "gender_", "accept_", "reject_", 
         "dev_add_course", "select_cat_", "dev_add_cat", 
@@ -43,59 +43,50 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         "edit_cat_", "move_to_cat_"
     ]
 
-    if any(data.startswith(prefix) for prefix in conversation_prefixes):
-        # نقوم بالرد فقط لضمان اختفاء علامة التحميل (الساعة الرملية)
-        try:
-            await query.answer()
-        except:
-            pass
-        return # نخرج لنسمح للـ ConversationHandler في main.py بالتعامل مع الأمر
-    
-    # --- 2. معالجة الأزرار العامة والقوائم المستقلة ---
+
+    # --- نهاية الحماية ---
+
+    # معالجة الأزرار العامة والقوائم المستقلة
+    if data == "show_categories":
+        await show_categories(update, context)
+    elif data == "main_menu":
+        await show_main_menu(update, context)
+    elif data == "dev_panel":
+        await show_dev_panel(update, context)
+    elif data == "dev_stats":
+        await show_dev_stats(update, context)
+    elif data == "dev_users":
+        await show_dev_users(update, context)
+    elif data == "dev_courses":
+        await show_manage_courses_menu(update, context)
+    elif data == "dev_categories":
+        await show_manage_categories_menu(update, context)
+    elif data.startswith("cat_"):
+        await show_courses(update, context)
+    elif data.startswith("course_"):
+        await show_course_details(update, context)
+    elif data.startswith("del_course_confirm_"):
+        await confirm_delete_course(update, context)
+    elif data.startswith("edit_select_"):
+        await edit_course_select_field(update, context)
+    elif data.startswith("toggle_status_"):
+        await toggle_course_status(update, context)
+    elif data.startswith("edit_field_"):
+        await edit_course_get_new_value(update, context)
+    elif data.startswith("edit_cat_"):
+        await update_course_with_new_cat(update, context)
+    elif data.startswith("move_course_"):
+        await move_course_select_category(update, context)
+    elif data.startswith("move_to_cat_"):
+        await move_course(update, context)
+    elif data.startswith("del_cat_"):
+        await confirm_delete_category(update, context)
+    elif data in ["delete_cat_only", "delete_cat_with_courses"]:
+        await execute_delete_category(update, context)
+
+    # إنهاء حالة التحميل للأزرار التي لم يتم الرد عليها
     try:
-        if data == "show_categories":
-            await show_categories(update, context)
-        elif data == "main_menu":
-            await show_main_menu(update, context)
-        elif data == "dev_panel":
-            await show_dev_panel(update, context)
-        elif data == "dev_stats":
-            await show_dev_stats(update, context)
-        elif data == "dev_users":
-            await show_dev_users(update, context)
-        elif data == "dev_courses":
-            await show_manage_courses_menu(update, context)
-        elif data == "dev_categories":
-            await show_manage_categories_menu(update, context)
-        elif data.startswith("cat_"):
-            await show_courses(update, context)
-        elif data.startswith("course_"):
-            await show_course_details(update, context)
-        elif data.startswith("del_course_confirm_"):
-            await confirm_delete_course(update, context)
-        elif data.startswith("edit_select_"):
-            await edit_course_select_field(update, context)
-        elif data.startswith("toggle_status_"):
-            await toggle_status_course(update, context) # تم تصحيح الاستدعاء
-        elif data.startswith("edit_field_"):
-            await edit_course_get_new_value(update, context)
-        elif data.startswith("edit_cat_"):
-            await update_course_with_new_cat(update, context)
-        elif data.startswith("move_course_"):
-            await move_course_select_category(update, context)
-        elif data.startswith("move_to_cat_"):
-            await move_course(update, context)
-        elif data.startswith("del_cat_"):
-            await confirm_delete_category(update, context)
-        elif data in ["delete_cat_only", "delete_cat_with_courses"]:
-            await execute_delete_category(update, context)
-
-        # التأكيد النهائي للرد على تلجرام
         await query.answer()
-
     except Exception as e:
-        logging.error(f"Error in handle_callback_query: {e}")
-        try:
-            await query.answer("⚠️ حدث خطأ أثناء معالجة الطلب")
-        except:
-            pass
+        logging.error(f"Error answering callback query: {e}")
+
